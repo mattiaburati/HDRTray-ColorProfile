@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\HDRTray.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\NotifyIcon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\ColorProfileManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\ConfigManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\HDRTray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\NotifyIcon.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\ColorProfileManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\ConfigManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\HDRTray\HDRTray.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{BE16EFE6-20B7-3F6C-8141-187AF202DCEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{EDEA2DE4-615A-39F5-AE9F-DDC45973E3B7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

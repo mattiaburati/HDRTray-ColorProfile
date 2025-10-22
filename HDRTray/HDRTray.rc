@@ -1,0 +1,108 @@
+﻿#include "resource.h"
+
+#include <windows.h>
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+
+IDI_APP                 ICON         "icons/app.ico"
+IDI_HDR_OFF_DARKMODE    ICON         "icons/sdr-darkmode.ico"
+IDI_HDR_OFF_LIGHTMODE   ICON         "icons/sdr-lightmode.ico"
+IDI_HDR_ON_DARKMODE     ICON         "icons/hdr-darkmode.ico"
+IDI_HDR_ON_LIGHTMODE    ICON         "icons/hdr-lightmode.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Binary Resources (Embedded Tools)
+//
+// NOTE: To embed tools, place dispwin.exe and winddcutil.exe in the
+//       resources/tools directory before building with -DEMBED_TOOLS=ON.
+//       This is optional - HDRTray will work with external tools in bin folder.
+//
+
+#ifdef EMBED_TOOLS
+IDR_DISPWIN_EXE         BINARY       "resources/tools/dispwin.exe"
+IDR_WINDDCUTIL_EXE      BINARY       "resources/tools/winddcutil.exe"
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_TRAYPOPUP MENU
+BEGIN
+    POPUP "Dummy"
+    BEGIN
+        MENUITEM "Enable &HDR",             IDM_ENABLE_HDR
+        MENUITEM SEPARATOR
+        MENUITEM "Color Tools: Ready",      IDM_TOOLS_STATUS
+        MENUITEM SEPARATOR
+        MENUITEM "Se&ttings...",            IDM_SETTINGS
+        MENUITEM "&Start when logging in",  IDM_AUTOSTART
+        MENUITEM "&Quit",                   IDM_EXIT
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+   IDS_APP_TITLE        "HDRTray"
+   IDS_HDR_UNSUPPORTED  "HDR not supported"
+   IDS_HDR_OFF          "HDR is off\nClick to turn on HDR"
+   IDS_HDR_ON           "HDR is on\nClick to turn off HDR"
+   IDS_WINDOWS_TOO_OLD  "Sorry, HDRTray only works on Windows 10, version 1803 and above"
+   IDS_TOGGLE_HDR_ERROR "Failed to switch HDR mode"
+END
+
+
+//
+// Version Info
+//
+#include "version.rc"
+
+
+LANGUAGE LANG_PORTUGUESE, SUBLANG_PORTUGUESE_BRAZILIAN
+
+// Portuguese Brazilian translation by https://github.com/marciozomb13
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_TRAYPOPUP MENU
+BEGIN
+    POPUP "Dummy"
+    BEGIN
+        MENUITEM "Ativar o &HDR",           IDM_ENABLE_HDR
+        MENUITEM "&Iniciar ao fazer login", IDM_AUTOSTART
+        MENUITEM "&Sair",                   IDM_EXIT
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+   IDS_APP_TITLE        "HDRTray"
+   IDS_HDR_UNSUPPORTED  "HDR não suportado"
+   IDS_HDR_OFF          "HDR desativado\nClique para ativar o HDR"
+   IDS_HDR_ON           "HDR ativado\nClique para desativar o HDR"
+   IDS_WINDOWS_TOO_OLD  "Desculpe, o HDRTray só funciona no Windows 10, versão 1803 e posterior"
+   IDS_TOGGLE_HDR_ERROR "Houve uma falha ao alternar o modo HDR"
+END

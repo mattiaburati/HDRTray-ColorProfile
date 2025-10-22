@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\src\Precompile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\App.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Config.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\ConfigFwd.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Error.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Formatter.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\FormatterFwd.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Macros.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Option.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Split.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\StringTools.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\TypeTools.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Validators.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\ExtraValidators.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Version.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Encoding.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Argv.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\CLI.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\Timer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\App_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Config_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Formatter_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Option_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Split_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\StringTools_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Validators_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\ExtraValidators_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Encoding_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\include\CLI\impl\Argv_inl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CLI11\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{BE16EFE6-20B7-3F6C-8141-187AF202DCEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{EDEA2DE4-615A-39F5-AE9F-DDC45973E3B7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/ext/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/ext/CLI11/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/ext/CLI11/fuzz/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/ext/CLI11/src/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/ext/CLI11/single-include/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/common/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/HDRTray/cmake_install.cmake",
+		"C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/build/HDRCmd/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

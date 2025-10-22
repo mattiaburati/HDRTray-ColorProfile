@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\Windows10Colors\Windows10Colors\Windows10Colors.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\Windows10Colors\Windows10Colors\Windows10Colors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\ext\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{BE16EFE6-20B7-3F6C-8141-187AF202DCEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{EDEA2DE4-615A-39F5-AE9F-DDC45973E3B7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

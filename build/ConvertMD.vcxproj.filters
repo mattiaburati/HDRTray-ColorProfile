@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\LICENSE.md" />
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\README.md" />
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\build\CMakeFiles\9eb1d1260c6d874f78c343c46d40dc6b\ConvertMD.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\matti\Desktop\HDRSwitch\HDRTray-main\build\CMakeFiles\ConvertMD" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{53C75E80-4EEE-32DE-8461-3C1F807FAA34}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

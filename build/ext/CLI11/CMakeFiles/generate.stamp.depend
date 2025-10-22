@@ -1,0 +1,7 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeDependentOption.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/ExternalProject/shared_internal_commands.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FetchContent.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/GNUInstallDirs.cmake
+C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/ext/CLI11/CMakeLists.txt
+C:/Users/matti/Desktop/HDRSwitch/HDRTray-main/ext/CLI11/cmake/CLI11Warnings.cmake
