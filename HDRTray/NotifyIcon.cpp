@@ -276,6 +276,12 @@ void NotifyIcon::ToggleHDR()
                        L", enabling_hdr: " +
                        std::to_wstring(enabling_hdr) + L"\n").c_str());
 
+    // Reload configuration before applying profiles (so changes in .ini take effect immediately)
+    if (color_profile_manager && color_profile_manager->GetConfig()) {
+        color_profile_manager->GetConfig()->Load();
+        OutputDebugStringW(L"Configuration reloaded from HDRTray.ini\n");
+    }
+
     // Apply color profile and calibration based on the INTENDED state
     if (color_profile_manager && color_profile_manager->AreToolsAvailable()) {
         if (enabling_hdr) {
@@ -286,15 +292,22 @@ void NotifyIcon::ToggleHDR()
             // 1. First toggle to HDR
             hdr::SetWindowsHDRStatus(true);
 
-            // 2. Wait 3 seconds and set color preset (0x14)
-            //if (!color_profile_manager->PrepareForHDR()) {
-            //    OutputDebugStringW(L"Warning: Failed to prepare monitor for HDR\n");
-            //}
+            // Check if color preset change is enabled
+            bool presetChangeEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableColorPresetChange;
 
-            // 3. Toggle HDR OFF then ON again (required for color preset to take effect)
-            //OutputDebugStringW(L"Toggling HDR OFF/ON for calibration\n");
-            //hdr::SetWindowsHDRStatus(false);
-            //hdr::SetWindowsHDRStatus(true);
+            if (presetChangeEnabled) {
+                // 2. Wait 3 seconds and set color preset (0x14)
+                if (!color_profile_manager->PrepareForHDR()) {
+                    OutputDebugStringW(L"Warning: Failed to prepare monitor for HDR\n");
+                }
+
+                // 3. Toggle HDR OFF then ON again (required for color preset to take effect)
+                OutputDebugStringW(L"Toggling HDR OFF/ON for calibration\n");
+                hdr::SetWindowsHDRStatus(false);
+                hdr::SetWindowsHDRStatus(true);
+            } else {
+                OutputDebugStringW(L"Color preset change disabled, skipping HDR toggle\n");
+            }
 
             // 4. Apply calibration file and color settings
             if (!color_profile_manager->ApplyHDRCalibration()) {
@@ -396,6 +409,15 @@ void NotifyIcon::PopupIconMenu(HWND hWnd, POINT pos)
         bool hdrEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableHdrProfile;
         mii.fState = hdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
         SetMenuItemInfoW(popup_menu, IDM_TOGGLE_HDR_PROFILE, false, &mii);
+    }
+
+    // Update Color Preset checkbox
+    if (color_profile_manager) {
+        mii = { sizeof(MENUITEMINFOW) };
+        mii.fMask = MIIM_STATE;
+        bool presetEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableColorPresetChange;
+        mii.fState = presetEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        SetMenuItemInfoW(popup_menu, IDM_TOGGLE_PRESET, false, &mii);
     }
 
     bool menu_right_align = GetSystemMetrics(SM_MENUDROPALIGNMENT) != 0;
@@ -542,4 +564,17 @@ void NotifyIcon::ToggleHdrProfile()
     color_profile_manager->GetConfig()->Save();
 
     OutputDebugStringW(settings.enableHdrProfile ? L"HDR profile enabled\n" : L"HDR profile disabled\n");
+}
+
+void NotifyIcon::ToggleColorPreset()
+{
+    if (!color_profile_manager)
+        return;
+
+    auto settings = color_profile_manager->GetConfig()->GetMonitorSettings();
+    settings.enableColorPresetChange = !settings.enableColorPresetChange;
+    color_profile_manager->GetConfig()->SetMonitorSettings(settings);
+    color_profile_manager->GetConfig()->Save();
+
+    OutputDebugStringW(settings.enableColorPresetChange ? L"Color preset change enabled\n" : L"Color preset change disabled\n");
 }

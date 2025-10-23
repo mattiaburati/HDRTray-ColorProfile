@@ -59,6 +59,7 @@ bool ConfigManager::Load()
     // Load profile enable/disable toggles
     m_monitorSettings.enableSdrProfile = ReadBoolValue(L"Profiles", L"EnableSDRProfile", true);
     m_monitorSettings.enableHdrProfile = ReadBoolValue(L"Profiles", L"EnableHDRProfile", true);
+    m_monitorSettings.enableColorPresetChange = ReadBoolValue(L"Profiles", L"EnableColorPresetChange", false);
 
     m_monitorSettings.sdrBrightness = ReadIntValue(L"SDR", L"Brightness", 50);
     m_monitorSettings.sdrRedGain = ReadIntValue(L"SDR", L"RedGain", 50);
@@ -90,6 +91,8 @@ bool ConfigManager::Save()
     if (!WriteBoolValue(L"Profiles", L"EnableSDRProfile", m_monitorSettings.enableSdrProfile))
         return false;
     if (!WriteBoolValue(L"Profiles", L"EnableHDRProfile", m_monitorSettings.enableHdrProfile))
+        return false;
+    if (!WriteBoolValue(L"Profiles", L"EnableColorPresetChange", m_monitorSettings.enableColorPresetChange))
         return false;
 
     if (!WriteIntValue(L"SDR", L"Brightness", m_monitorSettings.sdrBrightness))

@@ -65,6 +65,7 @@ public:
     void OpenSettings();
     void ToggleSdrProfile();
     void ToggleHdrProfile();
+    void ToggleColorPreset();
 
 protected:
     void PopupIconMenu(HWND hWnd, POINT pos);

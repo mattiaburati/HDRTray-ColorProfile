@@ -39,6 +39,7 @@ public:
         // Profile enable/disable toggles
         bool enableSdrProfile = true;
         bool enableHdrProfile = true;
+        bool enableColorPresetChange = false;  // Enable changing monitor color preset for HDR
 
         // SDR settings
         int sdrBrightness = 50;

@@ -46,6 +46,7 @@ BEGIN
         MENUITEM "Color Tools: Ready",      IDM_TOOLS_STATUS
         MENUITEM "Apply SDR Profile",       IDM_TOGGLE_SDR_PROFILE
         MENUITEM "Apply HDR Profile",       IDM_TOGGLE_HDR_PROFILE
+        MENUITEM "Change Color Preset",     IDM_TOGGLE_PRESET
         MENUITEM SEPARATOR
         MENUITEM "Se&ttings...",            IDM_SETTINGS
         MENUITEM "&Start when logging in",  IDM_AUTOSTART

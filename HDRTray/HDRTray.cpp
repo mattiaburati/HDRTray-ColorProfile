@@ -201,6 +201,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_TOGGLE_HDR_PROFILE:
                 notify_icon->ToggleHdrProfile();
                 break;
+            case IDM_TOGGLE_PRESET:
+                notify_icon->ToggleColorPreset();
+                break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
