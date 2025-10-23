@@ -30,7 +30,9 @@ HDRTray now includes automatic color profile and monitor calibration management 
 3. Right-click the HDRTray icon and select "Settings..." to configure your preferences
 
 ### Configuration
-The `HDRTray.ini` file allows you to configure:
+The `HDRTray.ini` file allows you to configure all color management settings. You can access it by right-clicking the tray icon and selecting "Settings..." or by editing it directly.
+
+**Note**: Configuration changes are automatically reloaded on every HDR/SDR toggle, so there's no need to restart the application after modifying the INI file.
 
 ```ini
 [Monitor]
@@ -39,6 +41,11 @@ DisplayId=1
 [Profiles]
 SDRProfile=YourSDRProfile.icm
 HDRCalibration=YourHDRCalibration.cal
+; Enable/disable profile loading (1=enabled, 0=disabled)
+EnableSDRProfile=1
+EnableHDRProfile=1
+; Enable/disable color preset change with HDR toggle (requires extra OFF/ON cycle)
+EnableColorPresetChange=0
 
 [SDR]
 Brightness=50
@@ -54,6 +61,15 @@ GreenGain=49
 BlueGain=49
 ```
 
+#### Profile Toggle Options
+You can enable/disable each feature via the right-click menu:
+- **Apply SDR Profile**: Load ICC profile when switching to SDR mode
+- **Apply HDR Profile**: Load calibration file when switching to HDR mode
+- **Change Color Preset**: Enable monitor color preset change (requires extra HDR toggle cycle)
+
+These settings are also configurable via checkboxes in the system tray menu for quick access.
+
+#### VCP Codes Reference
 All VCP codes are standard DDC/CI values:
 - `0x10` - Brightness
 - `0x14` - Color Preset Selection
@@ -105,9 +121,11 @@ Please use the [“Issues” tab of the GitHub project page](https://github.com/
 
 License
 -------
-HDRTray, a notification icon for the “Use HDR” option
+HDRTray, a notification icon for the "Use HDR" option
 
-Copyright (C) 2022-2025 Frank Richter
+Original Copyright (C) 2022-2025 Frank Richter
+
+Color Profile Management fork Copyright (C) 2025 Mattia Burati
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -120,3 +138,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 [Full text of GNU General Public License, Version 3](LICENSE.md).
+
+Credits
+-------
+- **Original HDRTray**: [Frank Richter](https://github.com/res2k/HDRTray)
+- **Color Profile Management Extension**: Mattia Burati (2025)
+  - Automatic ICC profile switching
+  - DDC/CI monitor control integration
+  - Configurable color management settings
+  - Profile toggle controls
