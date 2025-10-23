@@ -195,6 +195,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_AUTOSTART:
                 notify_icon->ToggleAutostartEnabled();
                 break;
+            case IDM_TOGGLE_SDR_PROFILE:
+                notify_icon->ToggleSdrProfile();
+                break;
+            case IDM_TOGGLE_HDR_PROFILE:
+                notify_icon->ToggleHdrProfile();
+                break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;

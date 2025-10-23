@@ -63,6 +63,8 @@ public:
     void ToggleAutostartEnabled();
     void ToggleHDR();
     void OpenSettings();
+    void ToggleSdrProfile();
+    void ToggleHdrProfile();
 
 protected:
     void PopupIconMenu(HWND hWnd, POINT pos);

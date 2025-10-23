@@ -195,12 +195,33 @@ bool ColorProfileManager::ApplySDRProfile()
     // Get settings from config
     const auto& settings = m_config->GetMonitorSettings();
 
-    // Load SDR ICC profile
-    std::wstring sdrProfilePath = GetProfilePath(settings.sdrProfileName.c_str());
-    if (!LoadICCProfile(sdrProfilePath.c_str()))
+    // Load SDR ICC profile (optional - skip if disabled or file doesn't exist)
+    if (settings.enableSdrProfile)
     {
-        OutputDebugStringW(L"Failed to load SDR ICC profile\n");
-        return false;
+        if (!settings.sdrProfileName.empty())
+        {
+            std::wstring sdrProfilePath = GetProfilePath(settings.sdrProfileName.c_str());
+            if (PathFileExistsW(sdrProfilePath.c_str()))
+            {
+                if (!LoadICCProfile(sdrProfilePath.c_str()))
+                {
+                    OutputDebugStringW(L"Warning: Failed to load SDR ICC profile\n");
+                    // Continue anyway - not a critical error
+                }
+            }
+            else
+            {
+                OutputDebugStringW((L"SDR profile not found: " + sdrProfilePath + L" (skipping)\n").c_str());
+            }
+        }
+        else
+        {
+            OutputDebugStringW(L"No SDR profile configured (skipping)\n");
+        }
+    }
+    else
+    {
+        OutputDebugStringW(L"SDR profile disabled (skipping)\n");
     }
 
     // Apply SDR monitor settings via DDC/CI (from config)
@@ -209,7 +230,7 @@ bool ColorProfileManager::ApplySDRProfile()
     SetMonitorVCP(settings.displayId, 0x18, settings.sdrGreenGain);   // Video Gain Green
     SetMonitorVCP(settings.displayId, 0x1A, settings.sdrBlueGain);    // Video Gain Blue
 
-    OutputDebugStringW(L"SDR profile applied successfully\n");
+    OutputDebugStringW(L"SDR settings applied successfully\n");
     return true;
 }
 
@@ -226,8 +247,8 @@ bool ColorProfileManager::PrepareForHDR()
     // Get settings from config
     const auto& settings = m_config->GetMonitorSettings();
 
-    // Wait before starting calibration (reduced from 3000ms for faster switching)
-    Sleep(1000);
+    // Wait before starting calibration (same as batch file: timeout 3)
+    Sleep(3000);
 
     // Set monitor to specific color preset for HDR
     OutputDebugStringW(L"Setting HDR color preset\n");
@@ -255,27 +276,47 @@ bool ColorProfileManager::ApplyHDRCalibration()
     // 3. Toggled HDR OFF then ON again
     // This function continues from that point
 
-    // Load HDR calibration file
-    std::wstring hdrCalibrationPath = GetProfilePath(settings.hdrCalibrationName.c_str());
-
-    std::wstring command = L"\"" + m_dispwinPath + L"\" -d " +
-                          std::to_wstring(settings.displayId) + L" \"" +
-                          hdrCalibrationPath + L"\"";
-
-    OutputDebugStringW((L"Loading HDR calibration: " + command + L"\n").c_str());
-    if (!ExecuteCommand(command))
+    // Load HDR calibration file (optional - skip if disabled or file doesn't exist)
+    if (settings.enableHdrProfile)
     {
-        OutputDebugStringW(L"Failed to load HDR calibration\n");
-        return false;
+        if (!settings.hdrCalibrationName.empty())
+        {
+            std::wstring hdrCalibrationPath = GetProfilePath(settings.hdrCalibrationName.c_str());
+            if (PathFileExistsW(hdrCalibrationPath.c_str()))
+            {
+                std::wstring command = L"\"" + m_dispwinPath + L"\" -d " +
+                                      std::to_wstring(settings.displayId) + L" \"" +
+                                      hdrCalibrationPath + L"\"";
+
+                OutputDebugStringW((L"Loading HDR calibration: " + command + L"\n").c_str());
+                if (!ExecuteCommand(command))
+                {
+                    OutputDebugStringW(L"Warning: Failed to load HDR calibration\n");
+                    // Continue anyway
+                }
+            }
+            else
+            {
+                OutputDebugStringW((L"HDR calibration not found: " + hdrCalibrationPath + L" (skipping)\n").c_str());
+            }
+        }
+        else
+        {
+            OutputDebugStringW(L"No HDR calibration configured (skipping)\n");
+        }
+    }
+    else
+    {
+        OutputDebugStringW(L"HDR profile disabled (skipping)\n");
     }
 
-    Sleep(300);
+    Sleep(1000);  // Same as batch file: timeout 1
 
     // Apply HDR monitor settings via DDC/CI (from config)
     OutputDebugStringW(L"Setting HDR brightness\n");
     SetMonitorVCP(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
 
-    Sleep(500);
+    Sleep(2000);  // Same as batch file: timeout 2
 
     OutputDebugStringW(L"Setting HDR RGB gains\n");
     SetMonitorVCP(settings.displayId, 0x16, settings.hdrRedGain);     // Video Gain Red

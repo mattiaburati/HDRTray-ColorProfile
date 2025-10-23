@@ -56,6 +56,10 @@ bool ConfigManager::Load()
     m_monitorSettings.sdrProfileName = ReadStringValue(L"Profiles", L"SDRProfile", L"Xiaomi 27i Pro_Rtings.icm");
     m_monitorSettings.hdrCalibrationName = ReadStringValue(L"Profiles", L"HDRCalibration", L"xiaomi_miniled_1d.cal");
 
+    // Load profile enable/disable toggles
+    m_monitorSettings.enableSdrProfile = ReadBoolValue(L"Profiles", L"EnableSDRProfile", true);
+    m_monitorSettings.enableHdrProfile = ReadBoolValue(L"Profiles", L"EnableHDRProfile", true);
+
     m_monitorSettings.sdrBrightness = ReadIntValue(L"SDR", L"Brightness", 50);
     m_monitorSettings.sdrRedGain = ReadIntValue(L"SDR", L"RedGain", 50);
     m_monitorSettings.sdrGreenGain = ReadIntValue(L"SDR", L"GreenGain", 49);
@@ -80,6 +84,12 @@ bool ConfigManager::Save()
     if (!WriteStringValue(L"Profiles", L"SDRProfile", m_monitorSettings.sdrProfileName.c_str()))
         return false;
     if (!WriteStringValue(L"Profiles", L"HDRCalibration", m_monitorSettings.hdrCalibrationName.c_str()))
+        return false;
+
+    // Save profile enable/disable toggles
+    if (!WriteBoolValue(L"Profiles", L"EnableSDRProfile", m_monitorSettings.enableSdrProfile))
+        return false;
+    if (!WriteBoolValue(L"Profiles", L"EnableHDRProfile", m_monitorSettings.enableHdrProfile))
         return false;
 
     if (!WriteIntValue(L"SDR", L"Brightness", m_monitorSettings.sdrBrightness))
@@ -132,4 +142,14 @@ std::wstring ConfigManager::ReadStringValue(const wchar_t* section, const wchar_
 bool ConfigManager::WriteStringValue(const wchar_t* section, const wchar_t* key, const wchar_t* value)
 {
     return WritePrivateProfileStringW(section, key, value, m_configFilePath.c_str()) != 0;
+}
+
+bool ConfigManager::ReadBoolValue(const wchar_t* section, const wchar_t* key, bool defaultValue)
+{
+    return GetPrivateProfileIntW(section, key, defaultValue ? 1 : 0, m_configFilePath.c_str()) != 0;
+}
+
+bool ConfigManager::WriteBoolValue(const wchar_t* section, const wchar_t* key, bool value)
+{
+    return WritePrivateProfileStringW(section, key, value ? L"1" : L"0", m_configFilePath.c_str()) != 0;
 }

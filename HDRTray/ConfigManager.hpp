@@ -36,6 +36,10 @@ public:
         std::wstring sdrProfileName = L"Xiaomi 27i Pro_Rtings.icm";
         std::wstring hdrCalibrationName = L"xiaomi_miniled_1d.cal";
 
+        // Profile enable/disable toggles
+        bool enableSdrProfile = true;
+        bool enableHdrProfile = true;
+
         // SDR settings
         int sdrBrightness = 50;
         int sdrRedGain = 50;
@@ -86,7 +90,9 @@ private:
 
     std::wstring GetExecutablePath() const;
     int ReadIntValue(const wchar_t* section, const wchar_t* key, int defaultValue);
+    bool ReadBoolValue(const wchar_t* section, const wchar_t* key, bool defaultValue);
     std::wstring ReadStringValue(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue);
     bool WriteIntValue(const wchar_t* section, const wchar_t* key, int value);
+    bool WriteBoolValue(const wchar_t* section, const wchar_t* key, bool value);
     bool WriteStringValue(const wchar_t* section, const wchar_t* key, const wchar_t* value);
 };

@@ -17,6 +17,7 @@
 */
 
 #include "NotifyIcon.hpp"
+#include "ConfigManager.hpp"
 
 #include "l10n.h"
 #include "Resource.h"
@@ -275,52 +276,62 @@ void NotifyIcon::ToggleHDR()
                        L", enabling_hdr: " +
                        std::to_wstring(enabling_hdr) + L"\n").c_str());
 
-    auto new_status = hdr::ToggleHDRStatus();
+    // Apply color profile and calibration based on the INTENDED state
+    if (color_profile_manager && color_profile_manager->AreToolsAvailable()) {
+        if (enabling_hdr) {
+            // Switching to HDR - apply HDR calibration
+            OutputDebugStringW(L"Enabling HDR with calibration...\n");
 
-    OutputDebugStringW((L"After ToggleHDRStatus, new_status: " +
-                       std::to_wstring(new_status ? static_cast<int>(*new_status) : -1) + L"\n").c_str());
+            // Following the exact order from the batch file:
+            // 1. First toggle to HDR
+            hdr::SetWindowsHDRStatus(true);
 
-    if(new_status) {
-        hdr_status = *new_status;
-        UpdateIcon();
+            // 2. Wait 3 seconds and set color preset (0x14)
+            //if (!color_profile_manager->PrepareForHDR()) {
+            //    OutputDebugStringW(L"Warning: Failed to prepare monitor for HDR\n");
+            //}
 
-        // Apply color profile and calibration based on the INTENDED state
-        // Use enabling_hdr which was determined BEFORE the toggle, not the status after
-        if (color_profile_manager && color_profile_manager->AreToolsAvailable()) {
-            if (enabling_hdr) {
-                // Switched to HDR - apply HDR calibration
-                OutputDebugStringW(L"HDR enabled, applying HDR calibration...\n");
+            // 3. Toggle HDR OFF then ON again (required for color preset to take effect)
+            //OutputDebugStringW(L"Toggling HDR OFF/ON for calibration\n");
+            //hdr::SetWindowsHDRStatus(false);
+            //hdr::SetWindowsHDRStatus(true);
 
-                // Following the exact order from the batch file:
-                // 1. Wait 3 seconds and set color preset (0x14)
-                if (!color_profile_manager->PrepareForHDR()) {
-                    OutputDebugStringW(L"Warning: Failed to prepare monitor for HDR\n");
-                }
-
-                // 2. Toggle HDR OFF then ON again (required for color preset to take effect)
-                OutputDebugStringW(L"Toggling HDR OFF/ON for calibration\n");
-                hdr::SetWindowsHDRStatus(false);
-                hdr::SetWindowsHDRStatus(true);
-
-                // 3. Apply calibration file and color settings
-                if (!color_profile_manager->ApplyHDRCalibration()) {
-                    OutputDebugStringW(L"Warning: Failed to apply HDR calibration\n");
-                }
-            } else {
-                // Switched to SDR - apply SDR profile
-                OutputDebugStringW(L"HDR disabled, applying SDR profile...\n");
-                if (!color_profile_manager->ApplySDRProfile()) {
-                    OutputDebugStringW(L"Warning: Failed to apply SDR profile\n");
-                }
+            // 4. Apply calibration file and color settings
+            if (!color_profile_manager->ApplyHDRCalibration()) {
+                OutputDebugStringW(L"Warning: Failed to apply HDR calibration\n");
             }
+
+            hdr_status = hdr::Status::On;
+        } else {
+            // Switching to SDR - apply SDR profile
+            OutputDebugStringW(L"Disabling HDR, applying SDR profile...\n");
+
+            // First toggle to SDR
+            hdr::SetWindowsHDRStatus(false);
+
+            // Then apply SDR profile
+            if (!color_profile_manager->ApplySDRProfile()) {
+                OutputDebugStringW(L"Warning: Failed to apply SDR profile\n");
+            }
+
+            hdr_status = hdr::Status::Off;
         }
+        UpdateIcon();
     } else {
-        // Pop up error balloon if toggle failed
-        auto notify_balloon_tip = notify_template;
-        notify_balloon_tip.uFlags |= NIF_INFO | NIF_REALTIME;
-        l10n::LoadString(IDS_TOGGLE_HDR_ERROR, notify_balloon_tip.szInfo);
-        notify_balloon_tip.dwInfoFlags = NIIF_ERROR;
-        Shell_NotifyIconW(NIM_MODIFY, &notify_balloon_tip);
+        // No color tools available, just toggle HDR normally
+        auto new_status = hdr::ToggleHDRStatus();
+
+        if(new_status) {
+            hdr_status = *new_status;
+            UpdateIcon();
+        } else {
+            // Pop up error balloon if toggle failed
+            auto notify_balloon_tip = notify_template;
+            notify_balloon_tip.uFlags |= NIF_INFO | NIF_REALTIME;
+            l10n::LoadString(IDS_TOGGLE_HDR_ERROR, notify_balloon_tip.szInfo);
+            notify_balloon_tip.dwInfoFlags = NIIF_ERROR;
+            Shell_NotifyIconW(NIM_MODIFY, &notify_balloon_tip);
+        }
     }
 
     if(has_mouse_pos)
@@ -368,6 +379,24 @@ void NotifyIcon::PopupIconMenu(HWND hWnd, POINT pos)
         mii.dwTypeData = str_tools_status;
     }
     SetMenuItemInfoW(popup_menu, IDM_TOOLS_STATUS, false, &mii);
+
+    // Update SDR Profile checkbox
+    if (color_profile_manager) {
+        mii = { sizeof(MENUITEMINFOW) };
+        mii.fMask = MIIM_STATE;
+        bool sdrEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableSdrProfile;
+        mii.fState = sdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        SetMenuItemInfoW(popup_menu, IDM_TOGGLE_SDR_PROFILE, false, &mii);
+    }
+
+    // Update HDR Profile checkbox
+    if (color_profile_manager) {
+        mii = { sizeof(MENUITEMINFOW) };
+        mii.fMask = MIIM_STATE;
+        bool hdrEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableHdrProfile;
+        mii.fState = hdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        SetMenuItemInfoW(popup_menu, IDM_TOGGLE_HDR_PROFILE, false, &mii);
+    }
 
     bool menu_right_align = GetSystemMetrics(SM_MENUDROPALIGNMENT) != 0;
     DWORD flags = TPM_RIGHTBUTTON
@@ -487,4 +516,30 @@ void NotifyIcon::OpenSettings()
 
     // Open the config file with Notepad
     ShellExecuteW(nullptr, L"open", L"notepad.exe", configPath.c_str(), nullptr, SW_SHOW);
+}
+
+void NotifyIcon::ToggleSdrProfile()
+{
+    if (!color_profile_manager)
+        return;
+
+    auto settings = color_profile_manager->GetConfig()->GetMonitorSettings();
+    settings.enableSdrProfile = !settings.enableSdrProfile;
+    color_profile_manager->GetConfig()->SetMonitorSettings(settings);
+    color_profile_manager->GetConfig()->Save();
+
+    OutputDebugStringW(settings.enableSdrProfile ? L"SDR profile enabled\n" : L"SDR profile disabled\n");
+}
+
+void NotifyIcon::ToggleHdrProfile()
+{
+    if (!color_profile_manager)
+        return;
+
+    auto settings = color_profile_manager->GetConfig()->GetMonitorSettings();
+    settings.enableHdrProfile = !settings.enableHdrProfile;
+    color_profile_manager->GetConfig()->SetMonitorSettings(settings);
+    color_profile_manager->GetConfig()->Save();
+
+    OutputDebugStringW(settings.enableHdrProfile ? L"HDR profile enabled\n" : L"HDR profile disabled\n");
 }

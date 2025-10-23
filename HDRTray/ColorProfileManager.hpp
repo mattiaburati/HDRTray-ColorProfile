@@ -21,6 +21,9 @@
 #include <string>
 #include <optional>
 
+// Forward declaration
+class ConfigManager;
+
 /**
  * Manager for color profile operations and monitor calibration.
  * Handles ICC profile loading and DDC/CI monitor control via external tools.
@@ -55,6 +58,12 @@ public:
      * @return true if successful, false otherwise
      */
     bool PrepareForHDR();
+
+    /**
+     * Get config manager for direct access to settings
+     * @return Pointer to ConfigManager
+     */
+    class ConfigManager* GetConfig() { return m_config; }
 
 private:
     std::wstring GetExecutablePath() const;
