@@ -42,6 +42,7 @@ class NotifyIcon
 
     bool dark_mode_icons = false;
     hdr::Status hdr_status = hdr::Status::Unsupported;
+    bool m_isToggling = false;  // Flag to prevent multiple simultaneous toggles
 
     std::unique_ptr<ColorProfileManager> color_profile_manager;
 
@@ -63,6 +64,7 @@ public:
     void ToggleAutostartEnabled();
     void ToggleHDR();
     void OpenSettings();
+    void ToggleColorManagement();
     void ToggleSdrProfile();
     void ToggleHdrProfile();
     void ToggleColorPreset();

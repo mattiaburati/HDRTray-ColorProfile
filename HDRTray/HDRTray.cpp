@@ -195,6 +195,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_AUTOSTART:
                 notify_icon->ToggleAutostartEnabled();
                 break;
+            case IDM_TOGGLE_COLOR_MGMT:
+                notify_icon->ToggleColorManagement();
+                break;
             case IDM_TOGGLE_SDR_PROFILE:
                 notify_icon->ToggleSdrProfile();
                 break;

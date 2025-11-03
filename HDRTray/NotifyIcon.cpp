@@ -153,6 +153,25 @@ bool NotifyIcon::Add()
     wrap_Shell_NotifyIconW(NIM_SETVERSION, &notify_setversion);
 
     UpdateIcon();
+
+    // Apply color profiles on startup based on current HDR state
+    if (color_profile_manager && color_profile_manager->AreToolsAvailable() &&
+        color_profile_manager->GetConfig()->GetMonitorSettings().enableColorManagement) {
+        OutputDebugStringW(L"Startup: Applying color profiles based on current HDR state...\n");
+
+        if (hdr_status == hdr::Status::On) {
+            OutputDebugStringW(L"Startup: System is in HDR mode, applying HDR calibration...\n");
+            if (!color_profile_manager->ApplyHDRCalibration()) {
+                OutputDebugStringW(L"Startup: Warning - Failed to apply HDR calibration\n");
+            }
+        } else if (hdr_status == hdr::Status::Off) {
+            OutputDebugStringW(L"Startup: System is in SDR mode, applying SDR profile...\n");
+            if (!color_profile_manager->ApplySDRProfile()) {
+                OutputDebugStringW(L"Startup: Warning - Failed to apply SDR profile\n");
+            }
+        }
+    }
+
     added = true;
     return true;
 }
@@ -263,17 +282,27 @@ void NotifyIcon::ToggleAutostartEnabled()
 
 void NotifyIcon::ToggleHDR()
 {
+    // Prevent multiple simultaneous toggles
+    if (m_isToggling) {
+        OutputDebugStringW(L"ToggleHDR: Already toggling, ignoring request\n");
+        return;
+    }
+    m_isToggling = true;
+
     /* Toggling HDR moves the mouse cursor to the screen center,
      * so save & restore it's position */
     POINT mouse_pos;
     bool has_mouse_pos = GetCursorPos(&mouse_pos);
 
+    // Always re-fetch HDR status from system to ensure we're in sync
+    FetchHDRStatus();
+    OutputDebugStringW((L"ToggleHDR: Current HDR status from system: " +
+                       std::to_wstring(static_cast<int>(hdr_status)) + L"\n").c_str());
+
     // Determine target state (opposite of current)
     bool enabling_hdr = (hdr_status != hdr::Status::On);
 
-    OutputDebugStringW((L"ToggleHDR called. Current hdr_status: " +
-                       std::to_wstring(static_cast<int>(hdr_status)) +
-                       L", enabling_hdr: " +
+    OutputDebugStringW((L"ToggleHDR: Target state - enabling_hdr: " +
                        std::to_wstring(enabling_hdr) + L"\n").c_str());
 
     // Reload configuration before applying profiles (so changes in .ini take effect immediately)
@@ -282,8 +311,13 @@ void NotifyIcon::ToggleHDR()
         OutputDebugStringW(L"Configuration reloaded from HDRTray.ini\n");
     }
 
+    // Check if color management is enabled (master toggle)
+    bool colorManagementEnabled = color_profile_manager &&
+                                   color_profile_manager->GetConfig() &&
+                                   color_profile_manager->GetConfig()->GetMonitorSettings().enableColorManagement;
+
     // Apply color profile and calibration based on the INTENDED state
-    if (color_profile_manager && color_profile_manager->AreToolsAvailable()) {
+    if (colorManagementEnabled && color_profile_manager->AreToolsAvailable()) {
         if (enabling_hdr) {
             // Switching to HDR - apply HDR calibration
             OutputDebugStringW(L"Enabling HDR with calibration...\n");
@@ -322,7 +356,7 @@ void NotifyIcon::ToggleHDR()
             // First toggle to SDR
             hdr::SetWindowsHDRStatus(false);
 
-            // Then apply SDR profile
+            // Apply SDR profile (includes sleep, ICC profile load, and calibrations)
             if (!color_profile_manager->ApplySDRProfile()) {
                 OutputDebugStringW(L"Warning: Failed to apply SDR profile\n");
             }
@@ -346,6 +380,9 @@ void NotifyIcon::ToggleHDR()
             Shell_NotifyIconW(NIM_MODIFY, &notify_balloon_tip);
         }
     }
+
+    // Release toggle lock
+    m_isToggling = false;
 
     if(has_mouse_pos)
         SetCursorPos(mouse_pos.x, mouse_pos.y);
@@ -393,30 +430,52 @@ void NotifyIcon::PopupIconMenu(HWND hWnd, POINT pos)
     }
     SetMenuItemInfoW(popup_menu, IDM_TOOLS_STATUS, false, &mii);
 
-    // Update SDR Profile checkbox
+    // Update Color Management master toggle checkbox
+    bool colorMgmtEnabled = false;
+    if (color_profile_manager) {
+        mii = { sizeof(MENUITEMINFOW) };
+        mii.fMask = MIIM_STATE;
+        colorMgmtEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableColorManagement;
+        mii.fState = colorMgmtEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        SetMenuItemInfoW(popup_menu, IDM_TOGGLE_COLOR_MGMT, false, &mii);
+    }
+
+    // Update SDR Profile checkbox - disable if color management is off
     if (color_profile_manager) {
         mii = { sizeof(MENUITEMINFOW) };
         mii.fMask = MIIM_STATE;
         bool sdrEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableSdrProfile;
-        mii.fState = sdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        if (colorMgmtEnabled) {
+            mii.fState = sdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        } else {
+            mii.fState = MFS_DISABLED | MFS_GRAYED;
+        }
         SetMenuItemInfoW(popup_menu, IDM_TOGGLE_SDR_PROFILE, false, &mii);
     }
 
-    // Update HDR Profile checkbox
+    // Update HDR Profile checkbox - disable if color management is off
     if (color_profile_manager) {
         mii = { sizeof(MENUITEMINFOW) };
         mii.fMask = MIIM_STATE;
         bool hdrEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableHdrProfile;
-        mii.fState = hdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        if (colorMgmtEnabled) {
+            mii.fState = hdrEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        } else {
+            mii.fState = MFS_DISABLED | MFS_GRAYED;
+        }
         SetMenuItemInfoW(popup_menu, IDM_TOGGLE_HDR_PROFILE, false, &mii);
     }
 
-    // Update Color Preset checkbox
+    // Update Color Preset checkbox - disable if color management is off
     if (color_profile_manager) {
         mii = { sizeof(MENUITEMINFOW) };
         mii.fMask = MIIM_STATE;
         bool presetEnabled = color_profile_manager->GetConfig()->GetMonitorSettings().enableColorPresetChange;
-        mii.fState = presetEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        if (colorMgmtEnabled) {
+            mii.fState = presetEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+        } else {
+            mii.fState = MFS_DISABLED | MFS_GRAYED;
+        }
         SetMenuItemInfoW(popup_menu, IDM_TOGGLE_PRESET, false, &mii);
     }
 
@@ -577,4 +636,17 @@ void NotifyIcon::ToggleColorPreset()
     color_profile_manager->GetConfig()->Save();
 
     OutputDebugStringW(settings.enableColorPresetChange ? L"Color preset change enabled\n" : L"Color preset change disabled\n");
+}
+
+void NotifyIcon::ToggleColorManagement()
+{
+    if (!color_profile_manager)
+        return;
+
+    auto settings = color_profile_manager->GetConfig()->GetMonitorSettings();
+    settings.enableColorManagement = !settings.enableColorManagement;
+    color_profile_manager->GetConfig()->SetMonitorSettings(settings);
+    color_profile_manager->GetConfig()->Save();
+
+    OutputDebugStringW(settings.enableColorManagement ? L"Color management enabled\n" : L"Color management disabled\n");
 }

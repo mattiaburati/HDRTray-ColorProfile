@@ -39,6 +39,9 @@ public:
         std::wstring sdrProfileName = L"Xiaomi 27i Pro_Rtings.icm";
         std::wstring hdrCalibrationName = L"xiaomi_miniled_1d.cal";
 
+        // Master toggle for all color management features
+        bool enableColorManagement = true;
+
         // Profile enable/disable toggles
         bool enableSdrProfile = true;
         bool enableHdrProfile = true;

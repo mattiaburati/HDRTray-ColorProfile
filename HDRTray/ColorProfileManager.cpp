@@ -157,7 +157,7 @@ bool ColorProfileManager::ExecuteCommand(const std::wstring& command) const
 bool ColorProfileManager::LoadICCProfile(const wchar_t* profilePath) const
 {
     const auto& settings = m_config->GetMonitorSettings();
-    std::wstring command = L"\"" + m_dispwinPath + L"\" -d " +
+    std::wstring command = L"\"" + m_dispwinPath + L"\" -I -d " +
                           std::to_wstring(settings.displayId) + L" \"" +
                           profilePath + L"\"";
 
@@ -198,6 +198,10 @@ bool ColorProfileManager::ApplySDRProfile()
     // Get settings from config
     const auto& settings = m_config->GetMonitorSettings();
 
+    // Wait for monitor to switch to SDR mode before applying profile
+    OutputDebugStringW(L"Waiting 1 second for monitor to switch to SDR mode...\n");
+    Sleep(1000);
+
     // Load SDR ICC profile (optional - skip if disabled or file doesn't exist)
     if (settings.enableSdrProfile)
     {
@@ -206,6 +210,7 @@ bool ColorProfileManager::ApplySDRProfile()
             std::wstring sdrProfilePath = GetProfilePath(settings.sdrProfileName.c_str());
             if (PathFileExistsW(sdrProfilePath.c_str()))
             {
+                OutputDebugStringW(L"Loading SDR ICC profile...\n");
                 if (!LoadICCProfile(sdrProfilePath.c_str()))
                 {
                     OutputDebugStringW(L"Warning: Failed to load SDR ICC profile\n");
@@ -227,7 +232,8 @@ bool ColorProfileManager::ApplySDRProfile()
         OutputDebugStringW(L"SDR profile disabled (skipping)\n");
     }
 
-    // Apply SDR monitor settings via DDC/CI (from config)
+    // Apply SDR monitor calibrations via DDC/CI (from config)
+    OutputDebugStringW(L"Applying SDR calibrations (brightness and RGB gains)...\n");
     SetMonitorVCP(settings.displayId, 0x10, settings.sdrBrightness);  // Brightness
     SetMonitorVCP(settings.displayId, 0x16, settings.sdrRedGain);     // Video Gain Red
     SetMonitorVCP(settings.displayId, 0x18, settings.sdrGreenGain);   // Video Gain Green
@@ -275,9 +281,13 @@ bool ColorProfileManager::ApplyHDRCalibration()
 
     // NOTE: The caller (NotifyIcon::ToggleHDR) should have already:
     // 1. Enabled HDR
-    // 2. Called PrepareForHDR() (which waits 1s and sets color preset 0x14)
-    // 3. Toggled HDR OFF then ON again
+    // 2. Called PrepareForHDR() (which waits 3s and sets color preset 0x14) if enableColorPresetChange
+    // 3. Toggled HDR OFF then ON again if enableColorPresetChange
     // This function continues from that point
+
+    // Wait for monitor to switch to HDR mode before applying profile
+    OutputDebugStringW(L"Waiting 1 second for monitor to switch to HDR mode...\n");
+    Sleep(1000);
 
     // Load HDR calibration file (optional - skip if disabled or file doesn't exist)
     if (settings.enableHdrProfile)
@@ -287,7 +297,7 @@ bool ColorProfileManager::ApplyHDRCalibration()
             std::wstring hdrCalibrationPath = GetProfilePath(settings.hdrCalibrationName.c_str());
             if (PathFileExistsW(hdrCalibrationPath.c_str()))
             {
-                std::wstring command = L"\"" + m_dispwinPath + L"\" -d " +
+                std::wstring command = L"\"" + m_dispwinPath + L"\" -I -d " +
                                       std::to_wstring(settings.displayId) + L" \"" +
                                       hdrCalibrationPath + L"\"";
 
@@ -313,15 +323,9 @@ bool ColorProfileManager::ApplyHDRCalibration()
         OutputDebugStringW(L"HDR profile disabled (skipping)\n");
     }
 
-    Sleep(1000);  // Same as batch file: timeout 1
-
-    // Apply HDR monitor settings via DDC/CI (from config)
-    OutputDebugStringW(L"Setting HDR brightness\n");
+    // Apply HDR monitor calibrations via DDC/CI (from config)
+    OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains)...\n");
     SetMonitorVCP(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
-
-    Sleep(2000);  // Same as batch file: timeout 2
-
-    OutputDebugStringW(L"Setting HDR RGB gains\n");
     SetMonitorVCP(settings.displayId, 0x16, settings.hdrRedGain);     // Video Gain Red
     SetMonitorVCP(settings.displayId, 0x18, settings.hdrGreenGain);   // Video Gain Green
     SetMonitorVCP(settings.displayId, 0x1A, settings.hdrBlueGain);    // Video Gain Blue

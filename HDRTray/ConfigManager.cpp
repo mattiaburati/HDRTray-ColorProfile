@@ -55,6 +55,9 @@ bool ConfigManager::Load()
     // Load monitor settings
     m_monitorSettings.displayId = ReadIntValue(L"Monitor", L"DisplayId", 1);
 
+    // Load master color management toggle
+    m_monitorSettings.enableColorManagement = ReadBoolValue(L"Profiles", L"EnableColorManagement", true);
+
     // Load profile filenames
     m_monitorSettings.sdrProfileName = ReadStringValue(L"Profiles", L"SDRProfile", L"Xiaomi 27i Pro_Rtings.icm");
     m_monitorSettings.hdrCalibrationName = ReadStringValue(L"Profiles", L"HDRCalibration", L"xiaomi_miniled_1d.cal");
@@ -82,6 +85,10 @@ bool ConfigManager::Save()
 {
     // Save monitor settings
     if (!WriteIntValue(L"Monitor", L"DisplayId", m_monitorSettings.displayId))
+        return false;
+
+    // Save master color management toggle
+    if (!WriteBoolValue(L"Profiles", L"EnableColorManagement", m_monitorSettings.enableColorManagement))
         return false;
 
     // Save profile filenames

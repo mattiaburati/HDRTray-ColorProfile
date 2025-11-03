@@ -28,9 +28,10 @@
 #define IDM_ENABLE_HDR          103
 #define IDM_SETTINGS            104
 #define IDM_TOOLS_STATUS        105
-#define IDM_TOGGLE_SDR_PROFILE  106
-#define IDM_TOGGLE_HDR_PROFILE  107
-#define IDM_TOGGLE_PRESET       108
+#define IDM_TOGGLE_COLOR_MGMT   106
+#define IDM_TOGGLE_SDR_PROFILE  107
+#define IDM_TOGGLE_HDR_PROFILE  108
+#define IDM_TOGGLE_PRESET       109
 
 #define IDI_APP                 1
 #define IDI_HDR_OFF_DARKMODE    101

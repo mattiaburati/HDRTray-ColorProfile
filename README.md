@@ -39,6 +39,8 @@ The `HDRTray.ini` file allows you to configure all color management settings. Yo
 DisplayId=1
 
 [Profiles]
+; Master toggle for ALL color management features (1=enabled, 0=disabled)
+EnableColorManagement=1
 SDRProfile=YourSDRProfile.icm
 HDRCalibration=YourHDRCalibration.cal
 ; Enable/disable profile loading (1=enabled, 0=disabled)
@@ -63,11 +65,14 @@ BlueGain=49
 
 #### Profile Toggle Options
 You can enable/disable each feature via the right-click menu:
+- **Enable Color Management**: Master toggle to enable/disable ALL color management features at once
 - **Apply SDR Profile**: Load ICC profile when switching to SDR mode
 - **Apply HDR Profile**: Load calibration file when switching to HDR mode
 - **Change Color Preset**: Enable monitor color preset change (requires extra HDR toggle cycle)
 
 These settings are also configurable via checkboxes in the system tray menu for quick access.
+
+**Note**: If "Enable Color Management" is unchecked, all color management features will be disabled and HDRTray will only toggle HDR on/off without applying any profiles or monitor settings.
 
 #### VCP Codes Reference
 All VCP codes are standard DDC/CI values:
