@@ -25,6 +25,7 @@
 #include <windows.h>
 #include <shlwapi.h>
 #include <filesystem>
+#include <algorithm>
 
 #pragma comment(lib, "shlwapi.lib")
 
@@ -157,11 +158,29 @@ bool ColorProfileManager::ExecuteCommand(const std::wstring& command) const
 bool ColorProfileManager::LoadICCProfile(const wchar_t* profilePath) const
 {
     const auto& settings = m_config->GetMonitorSettings();
-    std::wstring command = L"\"" + m_dispwinPath + L"\" -I -d " +
-                          std::to_wstring(settings.displayId) + L" \"" +
-                          profilePath + L"\"";
 
-    OutputDebugStringW((L"Loading ICC profile: " + command + L"\n").c_str());
+    // Check file extension to determine if we need -I flag
+    // .cal files don't need -I flag, .icc/.icm files do
+    std::wstring path(profilePath);
+    std::wstring extension;
+    size_t dotPos = path.find_last_of(L'.');
+    if (dotPos != std::wstring::npos) {
+        extension = path.substr(dotPos);
+        // Convert to lowercase for comparison
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
+    }
+
+    std::wstring command = L"\"" + m_dispwinPath + L"\"";
+
+    // Only add -I flag for .icc or .icm files (ICC profile installation)
+    // .cal files are calibration files and should be loaded without -I flag
+    if (extension == L".icc" || extension == L".icm") {
+        command += L" -I";
+    }
+
+    command += L" -d " + std::to_wstring(settings.displayId) + L" \"" + profilePath + L"\"";
+
+    OutputDebugStringW((L"Loading color profile: " + command + L"\n").c_str());
     return ExecuteCommand(command);
 }
 
@@ -199,8 +218,10 @@ bool ColorProfileManager::ApplySDRProfile()
     const auto& settings = m_config->GetMonitorSettings();
 
     // Wait for monitor to switch to SDR mode before applying profile
-    OutputDebugStringW(L"Waiting 1 second for monitor to switch to SDR mode...\n");
-    Sleep(1000);
+    // Increased delay from 1s to 3s to ensure monitor is fully stabilized
+    // This fixes the issue where brightness is not applied when switching from HDR->SDR
+    OutputDebugStringW(L"Waiting 3 seconds for monitor to switch to SDR mode...\n");
+    Sleep(3000);
 
     // Load SDR ICC profile (optional - skip if disabled or file doesn't exist)
     if (settings.enableSdrProfile)
@@ -286,8 +307,11 @@ bool ColorProfileManager::ApplyHDRCalibration()
     // This function continues from that point
 
     // Wait for monitor to switch to HDR mode before applying profile
-    OutputDebugStringW(L"Waiting 1 second for monitor to switch to HDR mode...\n");
-    Sleep(1000);
+    // Increased delay from 1s to 3s to ensure monitor is fully stabilized
+    // This fixes the issue where brightness is not applied when switching from SDR->HDR
+    // after the system started in HDR mode
+    OutputDebugStringW(L"Waiting 3 seconds for monitor to switch to HDR mode...\n");
+    Sleep(3000);
 
     // Load HDR calibration file (optional - skip if disabled or file doesn't exist)
     if (settings.enableHdrProfile)
@@ -297,12 +321,8 @@ bool ColorProfileManager::ApplyHDRCalibration()
             std::wstring hdrCalibrationPath = GetProfilePath(settings.hdrCalibrationName.c_str());
             if (PathFileExistsW(hdrCalibrationPath.c_str()))
             {
-                std::wstring command = L"\"" + m_dispwinPath + L"\" -I -d " +
-                                      std::to_wstring(settings.displayId) + L" \"" +
-                                      hdrCalibrationPath + L"\"";
-
-                OutputDebugStringW((L"Loading HDR calibration: " + command + L"\n").c_str());
-                if (!ExecuteCommand(command))
+                OutputDebugStringW(L"Loading HDR calibration...\n");
+                if (!LoadICCProfile(hdrCalibrationPath.c_str()))
                 {
                     OutputDebugStringW(L"Warning: Failed to load HDR calibration\n");
                     // Continue anyway
