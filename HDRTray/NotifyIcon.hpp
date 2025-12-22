@@ -47,6 +47,14 @@ class NotifyIcon
     std::unique_ptr<ColorProfileManager> color_profile_manager;
 
 public:
+    enum class MonitorReapplyReason
+    {
+        None = 0,
+        DisplayChange = 1,
+        DisplayOn = 2,
+        SystemResume = 3,
+    };
+
     NotifyIcon(HWND hwnd);
     ~NotifyIcon();
 
@@ -56,6 +64,8 @@ public:
 
     bool UpdateHDRStatus();
     void UpdateDarkMode();
+    void QueueMonitorReconnection(MonitorReapplyReason reason);
+    int HandleMonitorReconnection();
 
     LRESULT HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam);
 
@@ -78,6 +88,11 @@ protected:
     void UpdateIcon();
 
     bool IsAutostartEnabled() const;
+
+private:
+    MonitorReapplyReason m_pendingReapplyReason = MonitorReapplyReason::None;
+    int m_reapplyRetryCount = 0;
+    static constexpr int kMaxReapplyRetries = 6;
 };
 
 #endif // NOTIFYICON_HPP_

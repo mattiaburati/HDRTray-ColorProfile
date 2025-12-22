@@ -201,6 +201,67 @@ void NotifyIcon::UpdateDarkMode()
     UpdateIcon();
 }
 
+void NotifyIcon::QueueMonitorReconnection(MonitorReapplyReason reason)
+{
+    if (static_cast<int>(reason) > static_cast<int>(m_pendingReapplyReason))
+        m_pendingReapplyReason = reason;
+
+    // New event: allow retries again (monitor might still be stabilizing)
+    m_reapplyRetryCount = 0;
+}
+
+int NotifyIcon::HandleMonitorReconnection()
+{
+    const auto reason = m_pendingReapplyReason;
+    m_pendingReapplyReason = MonitorReapplyReason::None;
+
+    // Check if color management is enabled
+    if (!color_profile_manager || !color_profile_manager->GetConfig())
+        return 0;
+
+    const auto& settings = color_profile_manager->GetConfig()->GetMonitorSettings();
+    if (!settings.enableColorManagement)
+        return 0;
+
+    if (reason == MonitorReapplyReason::None)
+        return 0;
+
+    const bool forceReapply = (reason != MonitorReapplyReason::DisplayChange);
+    bool success = true;
+
+    // Reapply color correction based on current mode
+    if (hdr_status == hdr::Status::On)
+    {
+        OutputDebugStringW(L"Monitor reconnected in HDR mode - reapplying color correction\n");
+        success = color_profile_manager->ReapplyHDRColorCorrection(forceReapply);
+    }
+    else if (hdr_status == hdr::Status::Off)
+    {
+        OutputDebugStringW(L"Monitor reconnected in SDR mode - reapplying color correction\n");
+        success = color_profile_manager->ReapplySDRColorCorrection(forceReapply);
+    }
+
+    if (success)
+    {
+        m_reapplyRetryCount = 0;
+        return 0;
+    }
+
+    // If we got a "strong" event (display on/resume), the monitor may just not be ready yet.
+    // Schedule a few retries with a small backoff.
+    if (forceReapply && m_reapplyRetryCount < kMaxReapplyRetries)
+    {
+        m_reapplyRetryCount++;
+        m_pendingReapplyReason = reason;
+        const int delayMs = 1500 + (m_reapplyRetryCount * 750);
+        OutputDebugStringW((L"Monitor reapply failed, scheduling retry in " + std::to_wstring(delayMs) + L"ms\n").c_str());
+        return delayMs;
+    }
+
+    m_reapplyRetryCount = 0;
+    return 0;
+}
+
 LRESULT NotifyIcon::HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
     auto event = LOWORD(lParam);

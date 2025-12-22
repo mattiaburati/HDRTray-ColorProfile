@@ -63,6 +63,26 @@ public:
     bool PrepareForHDR();
 
     /**
+     * Reapply HDR color correction (DDC/CI only, no ICC/cal profiles)
+     * Used when monitor reconnects after signal loss in HDR mode
+     * @return true if successful, false otherwise
+     */
+    bool ReapplyHDRColorCorrection();
+
+    /**
+     * Reapply SDR color correction (DDC/CI only, no ICC/cal profiles)
+     * Used when monitor reconnects after signal loss in SDR mode
+     * @return true if successful, false otherwise
+     */
+    bool ReapplySDRColorCorrection();
+
+    // Variants used for monitor reconnection handling:
+    // - force=true: always reapply (useful after standby/resume where the monitor may glitch without changing VCP values)
+    // - force=false: only reapply if a readable VCP value mismatches the desired settings
+    bool ReapplyHDRColorCorrection(bool force);
+    bool ReapplySDRColorCorrection(bool force);
+
+    /**
      * Get config manager for direct access to settings
      * @return Pointer to ConfigManager
      */
@@ -78,8 +98,12 @@ private:
     void CleanupTemporaryFiles();
 
     bool ExecuteCommand(const std::wstring& command) const;
+    bool ExecuteCommandWithOutput(const std::wstring& command, std::wstring& output) const;
     bool LoadICCProfile(const wchar_t* profilePath) const;
     bool SetMonitorVCP(int display, int vcpCode, int value) const;
+    bool GetMonitorVCP(int display, int vcpCode, int& currentValue) const;
+    bool SetMonitorVCPVerified(int display, int vcpCode, int value, int maxRetries = 3) const;
+    bool WaitForVcpReadable(int display, int vcpCode, int timeoutMs, int pollMs) const;
     void Sleep(int milliseconds) const;
 
     // Paths

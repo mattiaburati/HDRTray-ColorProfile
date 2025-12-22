@@ -25,6 +25,12 @@
 
 #include <memory>
 #include <utility>
+#include <powrprof.h>
+#include <winuser.h>
+
+// GUID for monitor power on notification
+// This is used to detect when the monitor turns on/off
+DEFINE_GUID(GUID_CONSOLE_DISPLAY_STATE, 0x6fe69556, 0x704a, 0x47a0, 0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47);
 
 #define MAX_LOADSTRING 100
 
@@ -134,8 +140,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 static std::unique_ptr<NotifyIcon> notify_icon;
 static UINT msg_TaskbarCreated;
 static unsigned hdr_status_check_count;
+static HPOWERNOTIFY hPowerNotify = nullptr;
 
-enum { TIMER_ID_WAIT_TASKBAR_CREATED = 1, TIMER_ID_RECHECK_HDR_STATUS = 2 };
+enum { TIMER_ID_WAIT_TASKBAR_CREATED = 1, TIMER_ID_RECHECK_HDR_STATUS = 2, TIMER_ID_REAPPLY_COLOR_CORRECTION = 3 };
 
 static void HandleTimer(HWND hWnd, int id)
 {
@@ -154,6 +161,16 @@ static void HandleTimer(HWND hWnd, int id)
                 hdr_status_check_count = 0;
         } else
             KillTimer(hWnd, TIMER_ID_RECHECK_HDR_STATUS);
+        break;
+    case TIMER_ID_REAPPLY_COLOR_CORRECTION:
+        KillTimer(hWnd, TIMER_ID_REAPPLY_COLOR_CORRECTION);
+        OutputDebugStringW(L"Timer: Reapplying color correction after monitor reconnection\n");
+        {
+            const int retryDelayMs = notify_icon->HandleMonitorReconnection();
+            if (retryDelayMs > 0)
+                SetTimer(hWnd, TIMER_ID_REAPPLY_COLOR_CORRECTION, retryDelayMs, nullptr);
+        }
+        break;
     }
 }
 
@@ -178,6 +195,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             // Set up a timer, this is the amount of time we wait for TaskbarCreated
             SetTimer(hWnd, TIMER_ID_WAIT_TASKBAR_CREATED, 30000, nullptr);
+        }
+        // Register for monitor power state notifications
+        hPowerNotify = RegisterPowerSettingNotification(hWnd, &GUID_CONSOLE_DISPLAY_STATE, DEVICE_NOTIFY_WINDOW_HANDLE);
+        if (hPowerNotify)
+        {
+            OutputDebugStringW(L"Successfully registered for monitor power notifications\n");
+        }
+        else
+        {
+            OutputDebugStringW(L"Failed to register for monitor power notifications\n");
         }
         break;
     case WM_COMMAND:
@@ -225,11 +252,54 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hdr_status_check_count = 10;
             SetTimer(hWnd, TIMER_ID_RECHECK_HDR_STATUS, 500, nullptr);
         }
+        // Handle potential monitor reconnection (signal restore after loss, standby exit, etc.)
+        // Use a delayed timer to ensure monitor is ready to receive DDC/CI commands
+        OutputDebugStringW(L"Display change detected - scheduling color correction reapplication\n");
+        notify_icon->QueueMonitorReconnection(NotifyIcon::MonitorReapplyReason::DisplayChange);
+        SetTimer(hWnd, TIMER_ID_REAPPLY_COLOR_CORRECTION, 3000, nullptr);
+        break;
+    case WM_POWERBROADCAST:
+        // Handle power events (monitor standby/resume and monitor on/off)
+        if (wParam == PBT_APMRESUMEAUTOMATIC || wParam == PBT_APMRESUMESUSPEND)
+        {
+            // System resumed from standby - monitor needs more time to stabilize
+            // Use a longer delay than WM_DISPLAYCHANGE
+            OutputDebugStringW(L"System resumed from standby - scheduling color correction reapplication\n");
+            notify_icon->QueueMonitorReconnection(NotifyIcon::MonitorReapplyReason::SystemResume);
+            SetTimer(hWnd, TIMER_ID_REAPPLY_COLOR_CORRECTION, 5000, nullptr);
+        }
+        else if (wParam == PBT_POWERSETTINGCHANGE)
+        {
+            // Monitor power state changed (on/off)
+            auto pbs = reinterpret_cast<POWERBROADCAST_SETTING*>(lParam);
+            if (pbs && IsEqualGUID(pbs->PowerSetting, GUID_CONSOLE_DISPLAY_STATE))
+            {
+                DWORD displayState = *reinterpret_cast<DWORD*>(&pbs->Data);
+                // displayState: 0 = off, 1 = on, 2 = dimmed
+                if (displayState == 1) // Monitor turned on
+                {
+                    OutputDebugStringW(L"Monitor turned ON - scheduling color correction reapplication\n");
+                    notify_icon->QueueMonitorReconnection(NotifyIcon::MonitorReapplyReason::DisplayOn);
+                    SetTimer(hWnd, TIMER_ID_REAPPLY_COLOR_CORRECTION, 3000, nullptr);
+                }
+                else if (displayState == 0)
+                {
+                    OutputDebugStringW(L"Monitor turned OFF\n");
+                }
+            }
+        }
         break;
     case WM_SETTINGCHANGE:
         notify_icon->UpdateDarkMode();
         break;
     case WM_DESTROY:
+        // Unregister power notifications
+        if (hPowerNotify)
+        {
+            UnregisterPowerSettingNotification(hPowerNotify);
+            hPowerNotify = nullptr;
+            OutputDebugStringW(L"Unregistered monitor power notifications\n");
+        }
         notify_icon->Remove();
         notify_icon.reset();
         PostQuitMessage(0);

@@ -26,10 +26,48 @@
 #include <shlwapi.h>
 #include <filesystem>
 #include <algorithm>
+#include <vector>
+#include <regex>
 
 #pragma comment(lib, "shlwapi.lib")
 
 extern HINSTANCE hInst; // From HDRTray.cpp
+
+static bool TryMultiByteToWide(UINT codePage, DWORD flags, const std::string& input, std::wstring& output)
+{
+    if (input.empty())
+    {
+        output.clear();
+        return true;
+    }
+
+    int size = MultiByteToWideChar(codePage, flags, input.c_str(), -1, nullptr, 0);
+    if (size <= 0)
+        return false;
+
+    std::vector<wchar_t> buffer(size);
+    size = MultiByteToWideChar(codePage, flags, input.c_str(), -1, buffer.data(), size);
+    if (size <= 0)
+        return false;
+
+    output.assign(buffer.data());
+    return true;
+}
+
+static std::wstring MultiByteToWideBestEffort(const std::string& input)
+{
+    std::wstring output;
+
+    // Try UTF-8 first (some tools emit UTF-8), then fall back to OEM/ANSI codepages
+    if (TryMultiByteToWide(CP_UTF8, MB_ERR_INVALID_CHARS, input, output))
+        return output;
+
+    if (TryMultiByteToWide(GetOEMCP(), 0, input, output))
+        return output;
+
+    (void)TryMultiByteToWide(GetACP(), 0, input, output);
+    return output;
+}
 
 ColorProfileManager::ColorProfileManager()
     : m_toolsExtracted(false)
@@ -155,6 +193,90 @@ bool ColorProfileManager::ExecuteCommand(const std::wstring& command) const
     return exitCode == 0;
 }
 
+bool ColorProfileManager::ExecuteCommandWithOutput(const std::wstring& command, std::wstring& output) const
+{
+    SECURITY_ATTRIBUTES sa = {};
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = nullptr;
+
+    // Create pipes for stdout
+    HANDLE hReadPipe = nullptr;
+    HANDLE hWritePipe = nullptr;
+    if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0))
+    {
+        OutputDebugStringW(L"Failed to create pipe\n");
+        return false;
+    }
+
+    // Ensure read handle is not inherited
+    SetHandleInformation(hReadPipe, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOW si = { sizeof(STARTUPINFOW) };
+    PROCESS_INFORMATION pi = {};
+
+    si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
+    si.wShowWindow = SW_HIDE;
+    si.hStdOutput = hWritePipe;
+    si.hStdError = hWritePipe;
+
+    // CreateProcess requires a modifiable string
+    std::wstring cmdLine = command;
+
+    BOOL result = CreateProcessW(
+        nullptr,
+        &cmdLine[0],
+        nullptr,
+        nullptr,
+        TRUE, // Inherit handles
+        CREATE_NO_WINDOW,
+        nullptr,
+        nullptr,
+        &si,
+        &pi
+    );
+
+    if (!result)
+    {
+        OutputDebugStringW((L"Failed to execute command: " + command + L"\n").c_str());
+        CloseHandle(hReadPipe);
+        CloseHandle(hWritePipe);
+        return false;
+    }
+
+    // Close write pipe in parent process
+    CloseHandle(hWritePipe);
+
+    // Read output from pipe
+    char buffer[4096];
+    DWORD bytesRead;
+    std::string outputStr;
+
+    while (ReadFile(hReadPipe, buffer, sizeof(buffer) - 1, &bytesRead, nullptr) && bytesRead > 0)
+    {
+        buffer[bytesRead] = '\0';
+        outputStr += buffer;
+    }
+
+    // Convert to wstring
+    if (!outputStr.empty())
+    {
+        output = MultiByteToWideBestEffort(outputStr);
+    }
+
+    // Wait for process to complete
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+
+    CloseHandle(hReadPipe);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return exitCode == 0;
+}
+
 bool ColorProfileManager::LoadICCProfile(const wchar_t* profilePath) const
 {
     const auto& settings = m_config->GetMonitorSettings();
@@ -184,6 +306,85 @@ bool ColorProfileManager::LoadICCProfile(const wchar_t* profilePath) const
     return ExecuteCommand(command);
 }
 
+static bool TryParseVcpCurrentValue(const std::wstring& output, int& currentValue)
+{
+    // Try to capture formats like:
+    // - "current value = 50"
+    // - "current=50"
+    // - "current value: 0x0032"
+    // This avoids relying on a specific tool (winddcutil vs renamed alternatives).
+    static const std::wregex reCurrent(
+        LR"((?:^|\s)current(?:\s+value)?\s*[:=]?\s*(0x[0-9a-fA-F]+|\d+))",
+        std::regex_constants::icase);
+
+    std::wsmatch match;
+    if (std::regex_search(output, match, reCurrent) && match.size() >= 2)
+    {
+        const std::wstring token = match[1].str();
+        try
+        {
+            if (token.rfind(L"0x", 0) == 0 || token.rfind(L"0X", 0) == 0)
+                currentValue = std::stoi(token, nullptr, 16);
+            else
+                currentValue = std::stoi(token, nullptr, 10);
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    // Handle terse outputs like:
+    // - "VCP 0x10 50"
+    // - "VCP 0x10 0x32"
+    // Some tools print: "VCP <code> <current> [max]" without labels.
+    static const std::wregex reTerseVcp(
+        LR"((?:^|\s)VCP\s+0x[0-9a-fA-F]+\s+(0x[0-9a-fA-F]+|\d+)(?:\s|$))",
+        std::regex_constants::icase);
+
+    if (std::regex_search(output, match, reTerseVcp) && match.size() >= 2)
+    {
+        const std::wstring token = match[1].str();
+        try
+        {
+            if (token.rfind(L"0x", 0) == 0 || token.rfind(L"0X", 0) == 0)
+                currentValue = std::stoi(token, nullptr, 16);
+            else
+                currentValue = std::stoi(token, nullptr, 10);
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    // Fallback: some tools print "VCP ...: value = X, max = Y" (without "current")
+    static const std::wregex reValue(
+        LR"((?:^|\s)(?:value|val)\s*[:=]\s*(0x[0-9a-fA-F]+|\d+))",
+        std::regex_constants::icase);
+
+    if (std::regex_search(output, match, reValue) && match.size() >= 2)
+    {
+        const std::wstring token = match[1].str();
+        try
+        {
+            if (token.rfind(L"0x", 0) == 0 || token.rfind(L"0X", 0) == 0)
+                currentValue = std::stoi(token, nullptr, 16);
+            else
+                currentValue = std::stoi(token, nullptr, 10);
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    return false;
+}
+
 bool ColorProfileManager::SetMonitorVCP(int display, int vcpCode, int value) const
 {
     // Format VCP code as hexadecimal (e.g., 0x10, not 0x16)
@@ -197,6 +398,108 @@ bool ColorProfileManager::SetMonitorVCP(int display, int vcpCode, int value) con
 
     OutputDebugStringW((L"Setting VCP: " + command + L"\n").c_str());
     return ExecuteCommand(command);
+}
+
+bool ColorProfileManager::GetMonitorVCP(int display, int vcpCode, int& currentValue) const
+{
+    // Format VCP code as hexadecimal
+    wchar_t vcpHex[8];
+    swprintf_s(vcpHex, L"%X", vcpCode);
+
+    std::wstring command = L"\"" + m_winddcutilPath + L"\" getvcp " +
+                          std::to_wstring(display) + L" 0x" +
+                          vcpHex;
+
+    OutputDebugStringW((L"Getting VCP: " + command + L"\n").c_str());
+
+    std::wstring output;
+    if (!ExecuteCommandWithOutput(command, output))
+    {
+        OutputDebugStringW(L"Failed to execute getvcp command\n");
+        return false;
+    }
+
+    if (!TryParseVcpCurrentValue(output, currentValue))
+    {
+        OutputDebugStringW((L"Could not parse getvcp output: " + output + L"\n").c_str());
+        return false;
+    }
+
+    OutputDebugStringW((L"Current VCP value: " + std::to_wstring(currentValue) + L"\n").c_str());
+    return true;
+}
+
+bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int value, int maxRetries) const
+{
+    for (int attempt = 0; attempt < maxRetries; attempt++)
+    {
+        if (attempt > 0)
+        {
+            OutputDebugStringW((L"Retry attempt " + std::to_wstring(attempt + 1) + L" of " + std::to_wstring(maxRetries) + L"\n").c_str());
+        }
+
+        // Set the VCP value
+        if (!SetMonitorVCP(display, vcpCode, value))
+        {
+            OutputDebugStringW(L"Failed to set VCP value\n");
+            if (attempt < maxRetries - 1)
+            {
+                Sleep(500); // Wait before retry
+                continue;
+            }
+            return false;
+        }
+
+        // Wait for the monitor to apply the change
+        Sleep(200);
+
+        // Verify the value was set correctly
+        int currentValue = -1;
+        if (GetMonitorVCP(display, vcpCode, currentValue))
+        {
+            if (currentValue == value)
+            {
+                OutputDebugStringW(L"VCP value verified successfully\n");
+                return true;
+            }
+            else
+            {
+                OutputDebugStringW((L"VCP value mismatch: expected " + std::to_wstring(value) +
+                                  L", got " + std::to_wstring(currentValue) + L"\n").c_str());
+                if (attempt < maxRetries - 1)
+                {
+                    Sleep(300); // Wait before retry
+                }
+            }
+        }
+        else
+        {
+            OutputDebugStringW(L"Failed to verify VCP value (getvcp failed)\n");
+            // Continue anyway as getvcp might not be supported for all codes
+            if (attempt == maxRetries - 1)
+            {
+                OutputDebugStringW(L"Warning: Could not verify VCP value, assuming success\n");
+                return true;
+            }
+        }
+    }
+
+    OutputDebugStringW(L"Failed to set and verify VCP value after all retries\n");
+    return false;
+}
+
+bool ColorProfileManager::WaitForVcpReadable(int display, int vcpCode, int timeoutMs, int pollMs) const
+{
+    const DWORD startTick = GetTickCount();
+    int currentValue = -1;
+
+    while (static_cast<int>(GetTickCount() - startTick) < timeoutMs)
+    {
+        if (GetMonitorVCP(display, vcpCode, currentValue))
+            return true;
+        Sleep(pollMs);
+    }
+    return false;
 }
 
 void ColorProfileManager::Sleep(int milliseconds) const
@@ -352,6 +655,152 @@ bool ColorProfileManager::ApplyHDRCalibration()
 
     OutputDebugStringW(L"HDR calibration applied successfully\n");
     return true;
+}
+
+bool ColorProfileManager::ReapplyHDRColorCorrection()
+{
+    return ReapplyHDRColorCorrection(/*force=*/true);
+}
+
+bool ColorProfileManager::ReapplySDRColorCorrection()
+{
+    return ReapplySDRColorCorrection(/*force=*/true);
+}
+
+bool ColorProfileManager::ReapplyHDRColorCorrection(bool force)
+{
+    if (!AreToolsAvailable())
+    {
+        OutputDebugStringW(L"Color profile tools not available\n");
+        return false;
+    }
+
+    OutputDebugStringW(L"Reapplying HDR color correction (DDC/CI only)...\n");
+
+    const auto& settings = m_config->GetMonitorSettings();
+
+    // The monitor might be "on" but not yet ready to accept/read DDC/CI after signal restore.
+    // Probe using a generally-supported VCP (brightness) and wait a bit.
+    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/15000, /*pollMs=*/500))
+    {
+        OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out), skipping HDR reapply\n");
+        return false;
+    }
+
+    if (!force)
+    {
+        int readableCount = 0;
+        bool mismatch = false;
+
+        struct Pair { int code; int desired; };
+        const Pair desired[] = {
+            { 0x10, settings.hdrBrightness },
+            { 0x16, settings.hdrRedGain },
+            { 0x18, settings.hdrGreenGain },
+            { 0x1A, settings.hdrBlueGain },
+        };
+
+        for (const auto& item : desired)
+        {
+            int currentValue = -1;
+            if (!GetMonitorVCP(settings.displayId, item.code, currentValue))
+                continue;
+            readableCount++;
+            if (currentValue != item.desired)
+            {
+                mismatch = true;
+                break;
+            }
+        }
+
+        // Skip only if we can read *all* relevant values and they match.
+        // If the tool/monitor can't report some VCPs, assume we might still need reapply.
+        if (readableCount == static_cast<int>(std::size(desired)) && !mismatch)
+        {
+            OutputDebugStringW(L"HDR VCP values already match desired settings, skipping reapply\n");
+            return true;
+        }
+    }
+
+    OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains) with verification...\n");
+    bool success = true;
+    success &= SetMonitorVCPVerified(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
+    success &= SetMonitorVCPVerified(settings.displayId, 0x16, settings.hdrRedGain);     // Video Gain Red
+    success &= SetMonitorVCPVerified(settings.displayId, 0x18, settings.hdrGreenGain);   // Video Gain Green
+    success &= SetMonitorVCPVerified(settings.displayId, 0x1A, settings.hdrBlueGain);    // Video Gain Blue
+
+    if (success)
+        OutputDebugStringW(L"HDR color correction reapplied successfully\n");
+    else
+        OutputDebugStringW(L"Warning: Some HDR color corrections may not have been applied correctly\n");
+
+    return success;
+}
+
+bool ColorProfileManager::ReapplySDRColorCorrection(bool force)
+{
+    if (!AreToolsAvailable())
+    {
+        OutputDebugStringW(L"Color profile tools not available\n");
+        return false;
+    }
+
+    OutputDebugStringW(L"Reapplying SDR color correction (DDC/CI only)...\n");
+
+    const auto& settings = m_config->GetMonitorSettings();
+
+    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/15000, /*pollMs=*/500))
+    {
+        OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out), skipping SDR reapply\n");
+        return false;
+    }
+
+    if (!force)
+    {
+        int readableCount = 0;
+        bool mismatch = false;
+
+        struct Pair { int code; int desired; };
+        const Pair desired[] = {
+            { 0x10, settings.sdrBrightness },
+            { 0x16, settings.sdrRedGain },
+            { 0x18, settings.sdrGreenGain },
+            { 0x1A, settings.sdrBlueGain },
+        };
+
+        for (const auto& item : desired)
+        {
+            int currentValue = -1;
+            if (!GetMonitorVCP(settings.displayId, item.code, currentValue))
+                continue;
+            readableCount++;
+            if (currentValue != item.desired)
+            {
+                mismatch = true;
+                break;
+            }
+        }
+
+        if (readableCount == static_cast<int>(std::size(desired)) && !mismatch)
+        {
+            OutputDebugStringW(L"SDR VCP values already match desired settings, skipping reapply\n");
+            return true;
+        }
+    }
+
+    OutputDebugStringW(L"Applying SDR calibrations (brightness and RGB gains) with verification...\n");
+    bool success = true;
+    success &= SetMonitorVCPVerified(settings.displayId, 0x10, settings.sdrBrightness);  // Brightness
+    success &= SetMonitorVCPVerified(settings.displayId, 0x16, settings.sdrRedGain);     // Video Gain Red
+    success &= SetMonitorVCPVerified(settings.displayId, 0x18, settings.sdrGreenGain);   // Video Gain Green
+    success &= SetMonitorVCPVerified(settings.displayId, 0x1A, settings.sdrBlueGain);    // Video Gain Blue
+
+    if (success)
+        OutputDebugStringW(L"SDR color correction reapplied successfully\n");
+    else
+        OutputDebugStringW(L"Warning: Some SDR color corrections may not have been applied correctly\n");
+
+    return success;
 }
 
 bool ColorProfileManager::ExtractEmbeddedResource(int resourceId, const wchar_t* resourceType, const std::wstring& outputPath)
