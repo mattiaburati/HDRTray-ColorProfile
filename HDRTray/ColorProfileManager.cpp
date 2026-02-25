@@ -706,12 +706,6 @@ bool ColorProfileManager::ApplyHDRCalibration()
         OutputDebugStringW(L"HDR profile disabled (skipping)\n");
     }
 
-    if (!EnsureVcp14ColorMode(settings.displayId))
-    {
-        OutputDebugStringW(L"Aborting HDR color correction because VCP 0x14 could not be ensured\n");
-        return false;
-    }
-
     // Apply HDR monitor calibrations via DDC/CI (from config)
     OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains)...\n");
     SetMonitorVCP(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
@@ -786,12 +780,6 @@ bool ColorProfileManager::ReapplyHDRColorCorrection(bool force)
             OutputDebugStringW(L"HDR VCP values already match desired settings, skipping reapply\n");
             return true;
         }
-    }
-
-    if (!EnsureVcp14ColorMode(settings.displayId))
-    {
-        OutputDebugStringW(L"Aborting HDR reapply because VCP 0x14 could not be ensured\n");
-        return false;
     }
 
     OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains) with verification...\n");
