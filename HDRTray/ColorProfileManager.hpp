@@ -103,6 +103,7 @@ private:
     bool SetMonitorVCP(int display, int vcpCode, int value) const;
     bool GetMonitorVCP(int display, int vcpCode, int& currentValue) const;
     bool SetMonitorVCPVerified(int display, int vcpCode, int value, int maxRetries = 3) const;
+    bool EnsureVcp14ColorMode(int display) const;
     bool WaitForVcpReadable(int display, int vcpCode, int timeoutMs, int pollMs) const;
     void Sleep(int milliseconds) const;
 

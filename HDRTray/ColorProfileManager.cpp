@@ -488,6 +488,60 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
     return false;
 }
 
+bool ColorProfileManager::EnsureVcp14ColorMode(int display) const
+{
+    // VCP 0x14 is known to be the color mode selector on supported displays.
+    // Read it only after DDC/CI is ready to avoid false negatives during transitions.
+    if (!WaitForVcpReadable(display, 0x14, /*timeoutMs=*/10000, /*pollMs=*/250))
+    {
+        OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out) for VCP 0x14\n");
+        return false;
+    }
+
+    int currentValue = -1;
+
+    if (!GetMonitorVCP(display, 0x14, currentValue))
+    {
+        OutputDebugStringW(L"Failed to read VCP 0x14 before color correction despite readiness probe\n");
+        return false;
+    }
+
+    if (currentValue == 12)
+    {
+        OutputDebugStringW(L"VCP 0x14 already set to 12\n");
+        return true;
+    }
+
+    OutputDebugStringW(L"Setting VCP 0x14 to 12 before applying color correction\n");
+    if (!SetMonitorVCPVerified(display, 0x14, 12))
+    {
+        OutputDebugStringW(L"Failed to set VCP 0x14 to 12, aborting color correction path\n");
+        return false;
+    }
+
+    // Re-check after the write settles; abort if the value is still not readable/12.
+    if (!WaitForVcpReadable(display, 0x14, /*timeoutMs=*/10000, /*pollMs=*/250))
+    {
+        OutputDebugStringW(L"DDC/CI became unreadable after setting VCP 0x14\n");
+        return false;
+    }
+
+    if (!GetMonitorVCP(display, 0x14, currentValue))
+    {
+        OutputDebugStringW(L"Failed to re-read VCP 0x14 after setting to 12\n");
+        return false;
+    }
+
+    if (currentValue != 12)
+    {
+        OutputDebugStringW((L"VCP 0x14 did not stabilize at 12 (got " + std::to_wstring(currentValue) + L")\n").c_str());
+        return false;
+    }
+
+    OutputDebugStringW(L"VCP 0x14 set to 12 successfully\n");
+    return true;
+}
+
 bool ColorProfileManager::WaitForVcpReadable(int display, int vcpCode, int timeoutMs, int pollMs) const
 {
     const DWORD startTick = GetTickCount();
@@ -554,6 +608,12 @@ bool ColorProfileManager::ApplySDRProfile()
     else
     {
         OutputDebugStringW(L"SDR profile disabled (skipping)\n");
+    }
+
+    if (!EnsureVcp14ColorMode(settings.displayId))
+    {
+        OutputDebugStringW(L"Aborting SDR color correction because VCP 0x14 could not be ensured\n");
+        return false;
     }
 
     // Apply SDR monitor calibrations via DDC/CI (from config)
@@ -646,6 +706,12 @@ bool ColorProfileManager::ApplyHDRCalibration()
         OutputDebugStringW(L"HDR profile disabled (skipping)\n");
     }
 
+    if (!EnsureVcp14ColorMode(settings.displayId))
+    {
+        OutputDebugStringW(L"Aborting HDR color correction because VCP 0x14 could not be ensured\n");
+        return false;
+    }
+
     // Apply HDR monitor calibrations via DDC/CI (from config)
     OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains)...\n");
     SetMonitorVCP(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
@@ -722,6 +788,12 @@ bool ColorProfileManager::ReapplyHDRColorCorrection(bool force)
         }
     }
 
+    if (!EnsureVcp14ColorMode(settings.displayId))
+    {
+        OutputDebugStringW(L"Aborting HDR reapply because VCP 0x14 could not be ensured\n");
+        return false;
+    }
+
     OutputDebugStringW(L"Applying HDR calibrations (brightness and RGB gains) with verification...\n");
     bool success = true;
     success &= SetMonitorVCPVerified(settings.displayId, 0x10, settings.hdrBrightness);  // Brightness
@@ -786,6 +858,12 @@ bool ColorProfileManager::ReapplySDRColorCorrection(bool force)
             OutputDebugStringW(L"SDR VCP values already match desired settings, skipping reapply\n");
             return true;
         }
+    }
+
+    if (!EnsureVcp14ColorMode(settings.displayId))
+    {
+        OutputDebugStringW(L"Aborting SDR reapply because VCP 0x14 could not be ensured\n");
+        return false;
     }
 
     OutputDebugStringW(L"Applying SDR calibrations (brightness and RGB gains) with verification...\n");
