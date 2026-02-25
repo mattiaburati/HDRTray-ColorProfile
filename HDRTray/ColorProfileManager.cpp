@@ -22,6 +22,9 @@
 #include "ColorProfileManager.hpp"
 #include "ConfigManager.hpp"
 #include "Resource.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <shlwapi.h>
 #include <filesystem>
@@ -448,7 +451,7 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
             OutputDebugStringW(L"Failed to set VCP value\n");
             if (attempt < maxRetries - 1)
             {
-                const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+                const int backoffIndex = (std::min)(attempt, kRetryBackoffCount - 1);
                 Sleep(kRetryBackoffMs[backoffIndex]);
                 continue;
             }
@@ -473,7 +476,7 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
                                    L", got " + std::to_wstring(currentValue) + L"\n").c_str());
                 if (attempt < maxRetries - 1)
                 {
-                    const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+                    const int backoffIndex = (std::min)(attempt, kRetryBackoffCount - 1);
                     Sleep(kRetryBackoffMs[backoffIndex]);
                 }
             }
@@ -488,7 +491,7 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
                 return true;
             }
 
-            const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+            const int backoffIndex = (std::min)(attempt, kRetryBackoffCount - 1);
             Sleep(kRetryBackoffMs[backoffIndex]);
         }
     }
