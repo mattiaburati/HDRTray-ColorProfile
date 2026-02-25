@@ -68,26 +68,28 @@ add_subdirectory(HDRTray)
 add_subdirectory(HDRCmd)
 
 if(MARKO_AVAILABLE)
-    set(MD2HTML "${CMAKE_CURRENT_BINARY_DIR}/md2html.py")
-    set(MD_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-    set(GENERATED_HTML_FILES)
-    foreach(md_file LICENSE README)
-        set(MD_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${md_file}.md")
-        set(MD_OUTPUT "${MD_OUTPUT_DIR}/${md_file}.html")
-        add_custom_command(OUTPUT "${MD_OUTPUT_DIR}/${md_file}.html"
-                           MAIN_DEPENDENCY "${MD_INPUT}"
-                           DEPENDS "${MD2HTML}"
-                           COMMAND "${Python3_EXECUTABLE}" "${MD2HTML}" "${MD_INPUT}" "${MD_OUTPUT}"
-                           COMMENT "Generating ${md_file}.html")
-        list(APPEND GENERATED_HTML_FILES "${MD_OUTPUT}")
-    endforeach()
-    add_custom_target(ConvertMD ALL DEPENDS ${GENERATED_HTML_FILES})
+    set(MD2HTML "${CMAKE_CURRENT_SOURCE_DIR}/scripts/md2html.py")
+    if(EXISTS "${MD2HTML}")
+        set(MD_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+        set(GENERATED_HTML_FILES)
+        foreach(md_file LICENSE README)
+            set(MD_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${md_file}.md")
+            set(MD_OUTPUT "${MD_OUTPUT_DIR}/${md_file}.html")
+            add_custom_command(OUTPUT "${MD_OUTPUT_DIR}/${md_file}.html"
+                               MAIN_DEPENDENCY "${MD_INPUT}"
+                               DEPENDS "${MD2HTML}"
+                               COMMAND "${Python3_EXECUTABLE}" "${MD2HTML}" "${MD_INPUT}" "${MD_OUTPUT}"
+                               COMMENT "Generating ${md_file}.html")
+            list(APPEND GENERATED_HTML_FILES "${MD_OUTPUT}")
+        endforeach()
+        add_custom_target(ConvertMD ALL DEPENDS ${GENERATED_HTML_FILES})
+    endif()
 endif()
 
 install(TARGETS HDRTray HDRCmd
         RUNTIME
         DESTINATION ".")
-if(MARKO_AVAILABLE)
+if(MARKO_AVAILABLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/md2html.py")
     foreach(md_file LICENSE README)
         install(FILES "${MD_OUTPUT_DIR}/${md_file}.html"
                 DESTINATION ".")
