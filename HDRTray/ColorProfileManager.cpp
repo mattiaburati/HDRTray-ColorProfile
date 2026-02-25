@@ -431,6 +431,10 @@ bool ColorProfileManager::GetMonitorVCP(int display, int vcpCode, int& currentVa
 
 bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int value, int maxRetries) const
 {
+    constexpr int kSetVerifySettleDelayMs = 200;
+    const int kRetryBackoffMs[] = { 150, 300, 500 };
+    const int kRetryBackoffCount = static_cast<int>(sizeof(kRetryBackoffMs) / sizeof(kRetryBackoffMs[0]));
+
     for (int attempt = 0; attempt < maxRetries; attempt++)
     {
         if (attempt > 0)
@@ -444,14 +448,15 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
             OutputDebugStringW(L"Failed to set VCP value\n");
             if (attempt < maxRetries - 1)
             {
-                Sleep(500); // Wait before retry
+                const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+                Sleep(kRetryBackoffMs[backoffIndex]);
                 continue;
             }
             return false;
         }
 
-        // Wait for the monitor to apply the change
-        Sleep(200);
+        // Wait briefly for the monitor to settle before verification
+        Sleep(kSetVerifySettleDelayMs);
 
         // Verify the value was set correctly
         int currentValue = -1;
@@ -465,10 +470,11 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
             else
             {
                 OutputDebugStringW((L"VCP value mismatch: expected " + std::to_wstring(value) +
-                                  L", got " + std::to_wstring(currentValue) + L"\n").c_str());
+                                   L", got " + std::to_wstring(currentValue) + L"\n").c_str());
                 if (attempt < maxRetries - 1)
                 {
-                    Sleep(300); // Wait before retry
+                    const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+                    Sleep(kRetryBackoffMs[backoffIndex]);
                 }
             }
         }
@@ -481,6 +487,9 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
                 OutputDebugStringW(L"Warning: Could not verify VCP value, assuming success\n");
                 return true;
             }
+
+            const int backoffIndex = std::min(attempt, kRetryBackoffCount - 1);
+            Sleep(kRetryBackoffMs[backoffIndex]);
         }
     }
 
@@ -526,15 +535,44 @@ bool ColorProfileManager::EnsureVcp14ColorMode(int display) const
         return false;
     }
 
-    if (!GetMonitorVCP(display, 0x14, currentValue))
+    constexpr int kVcp14StabilizationWindowMs = 2500;
+    constexpr int kVcp14StabilizationPollMs = 250;
+    constexpr int kVcp14RequiredConsecutiveReads = 2;
+
+    int consecutiveReads = 0;
+    bool stabilized = false;
+    DWORD stabilizationStartTick = GetTickCount();
+
+    while (static_cast<int>(GetTickCount() - stabilizationStartTick) < kVcp14StabilizationWindowMs)
     {
-        OutputDebugStringW(L"Failed to re-read VCP 0x14 after setting to 12\n");
-        return false;
+        if (GetMonitorVCP(display, 0x14, currentValue))
+        {
+            if (currentValue == 12)
+            {
+                consecutiveReads++;
+                if (consecutiveReads >= kVcp14RequiredConsecutiveReads)
+                {
+                    stabilized = true;
+                    break;
+                }
+            }
+            else
+            {
+                consecutiveReads = 0;
+            }
+        }
+        else
+        {
+            OutputDebugStringW(L"Failed to re-read VCP 0x14 during stabilization\n");
+            consecutiveReads = 0;
+        }
+
+        Sleep(kVcp14StabilizationPollMs);
     }
 
-    if (currentValue != 12)
+    if (!stabilized)
     {
-        OutputDebugStringW((L"VCP 0x14 did not stabilize at 12 (got " + std::to_wstring(currentValue) + L")\n").c_str());
+        OutputDebugStringW((L"VCP 0x14 did not stabilize at 12 (last value " + std::to_wstring(currentValue) + L")\n").c_str());
         return false;
     }
 
