@@ -434,8 +434,8 @@ bool ColorProfileManager::GetMonitorVCP(int display, int vcpCode, int& currentVa
 
 bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int value, int maxRetries) const
 {
-    constexpr int kSetVerifySettleDelayMs = 200;
-    const int kRetryBackoffMs[] = { 150, 300, 500 };
+    constexpr int kSetVerifySettleDelayMs = 600;
+    const int kRetryBackoffMs[] = { 400, 900, 1500 };
     const int kRetryBackoffCount = static_cast<int>(sizeof(kRetryBackoffMs) / sizeof(kRetryBackoffMs[0]));
 
     for (int attempt = 0; attempt < maxRetries; attempt++)
@@ -498,89 +498,6 @@ bool ColorProfileManager::SetMonitorVCPVerified(int display, int vcpCode, int va
 
     OutputDebugStringW(L"Failed to set and verify VCP value after all retries\n");
     return false;
-}
-
-bool ColorProfileManager::EnsureVcp14ColorMode(int display) const
-{
-    // VCP 0x14 is known to be the color mode selector on supported displays.
-    // Read it only after DDC/CI is ready to avoid false negatives during transitions.
-    if (!WaitForVcpReadable(display, 0x14, /*timeoutMs=*/10000, /*pollMs=*/250))
-    {
-        OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out) for VCP 0x14\n");
-        return false;
-    }
-
-    int currentValue = -1;
-
-    if (!GetMonitorVCP(display, 0x14, currentValue))
-    {
-        OutputDebugStringW(L"Failed to read VCP 0x14 before color correction despite readiness probe\n");
-        return false;
-    }
-
-    if (currentValue == 12)
-    {
-        OutputDebugStringW(L"VCP 0x14 already set to 12\n");
-        return true;
-    }
-
-    OutputDebugStringW(L"Setting VCP 0x14 to 12 before applying color correction\n");
-    if (!SetMonitorVCPVerified(display, 0x14, 12))
-    {
-        OutputDebugStringW(L"Failed to set VCP 0x14 to 12, aborting color correction path\n");
-        return false;
-    }
-
-    // Re-check after the write settles; abort if the value is still not readable/12.
-    if (!WaitForVcpReadable(display, 0x14, /*timeoutMs=*/10000, /*pollMs=*/250))
-    {
-        OutputDebugStringW(L"DDC/CI became unreadable after setting VCP 0x14\n");
-        return false;
-    }
-
-    constexpr int kVcp14StabilizationWindowMs = 2500;
-    constexpr int kVcp14StabilizationPollMs = 250;
-    constexpr int kVcp14RequiredConsecutiveReads = 2;
-
-    int consecutiveReads = 0;
-    bool stabilized = false;
-    DWORD stabilizationStartTick = GetTickCount();
-
-    while (static_cast<int>(GetTickCount() - stabilizationStartTick) < kVcp14StabilizationWindowMs)
-    {
-        if (GetMonitorVCP(display, 0x14, currentValue))
-        {
-            if (currentValue == 12)
-            {
-                consecutiveReads++;
-                if (consecutiveReads >= kVcp14RequiredConsecutiveReads)
-                {
-                    stabilized = true;
-                    break;
-                }
-            }
-            else
-            {
-                consecutiveReads = 0;
-            }
-        }
-        else
-        {
-            OutputDebugStringW(L"Failed to re-read VCP 0x14 during stabilization\n");
-            consecutiveReads = 0;
-        }
-
-        Sleep(kVcp14StabilizationPollMs);
-    }
-
-    if (!stabilized)
-    {
-        OutputDebugStringW((L"VCP 0x14 did not stabilize at 12 (last value " + std::to_wstring(currentValue) + L")\n").c_str());
-        return false;
-    }
-
-    OutputDebugStringW(L"VCP 0x14 set to 12 successfully\n");
-    return true;
 }
 
 bool ColorProfileManager::WaitForVcpReadable(int display, int vcpCode, int timeoutMs, int pollMs) const
@@ -649,12 +566,6 @@ bool ColorProfileManager::ApplySDRProfile()
     else
     {
         OutputDebugStringW(L"SDR profile disabled (skipping)\n");
-    }
-
-    if (!EnsureVcp14ColorMode(settings.displayId))
-    {
-        OutputDebugStringW(L"Aborting SDR color correction because VCP 0x14 could not be ensured\n");
-        return false;
     }
 
     // Apply SDR monitor calibrations via DDC/CI (from config)
@@ -782,7 +693,7 @@ bool ColorProfileManager::ReapplyHDRColorCorrection(bool force)
 
     // The monitor might be "on" but not yet ready to accept/read DDC/CI after signal restore.
     // Probe using a generally-supported VCP (brightness) and wait a bit.
-    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/15000, /*pollMs=*/500))
+    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/20000, /*pollMs=*/500))
     {
         OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out), skipping HDR reapply\n");
         return false;
@@ -850,7 +761,7 @@ bool ColorProfileManager::ReapplySDRColorCorrection(bool force)
 
     const auto& settings = m_config->GetMonitorSettings();
 
-    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/15000, /*pollMs=*/500))
+    if (!WaitForVcpReadable(settings.displayId, 0x10, /*timeoutMs=*/20000, /*pollMs=*/500))
     {
         OutputDebugStringW(L"DDC/CI not ready (getvcp probe timed out), skipping SDR reapply\n");
         return false;
@@ -887,12 +798,6 @@ bool ColorProfileManager::ReapplySDRColorCorrection(bool force)
             OutputDebugStringW(L"SDR VCP values already match desired settings, skipping reapply\n");
             return true;
         }
-    }
-
-    if (!EnsureVcp14ColorMode(settings.displayId))
-    {
-        OutputDebugStringW(L"Aborting SDR reapply because VCP 0x14 could not be ensured\n");
-        return false;
     }
 
     OutputDebugStringW(L"Applying SDR calibrations (brightness and RGB gains) with verification...\n");
